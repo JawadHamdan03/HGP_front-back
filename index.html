@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Warehouse · Control Center</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="logo">
+      🧠 Smart Warehouse
+    </div>
+    <div class="mode-toggle">
+      <span>Mode:</span>
+      <button id="mode-manual" class="mode-btn active">Manual</button>
+      <button id="mode-auto" class="mode-btn">Automatic</button>
+    </div>
+  </header>
+
+  <!-- Hero / Status Row -->
+  <section class="layout" style="grid-template-columns: 1.8fr 1.2fr; margin-top: 8px;">
+    <!-- LEFT: Summary cards -->
+    <div class="panel" style="gap: 10px;">
+      <h2>Control Center Overview</h2>
+      <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 8px;">
+        Monitor your rack cells, loading zone, and robot operations in real-time.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+        <div class="panel-sub" style="gap: 4px;">
+          <div style="font-size: 0.75rem; color:#9ca3af;">Total Cells</div>
+          <div id="kpi-total-cells" style="font-size: 1.1rem; font-weight: 600;">–</div>
+        </div>
+
+        <div class="panel-sub" style="gap: 4px;">
+          <div style="font-size: 0.75rem; color:#9ca3af;">Occupied Cells</div>
+          <div id="kpi-occupied-cells" style="font-size: 1.1rem; font-weight: 600;">–</div>
+        </div>
+
+        <div class="panel-sub" style="gap: 4px;">
+          <div style="font-size: 0.75rem; color:#9ca3af;">Ready Slots</div>
+          <div id="kpi-loading-ready" style="font-size: 1.1rem; font-weight: 600;">–</div>
+        </div>
+
+        <div class="panel-sub" style="gap: 4px;">
+          <div style="font-size: 0.75rem; color:#9ca3af;">Current Mode</div>
+          <div id="kpi-mode" style="font-size: 1.1rem; font-weight: 600; color:#22c55e;">
+            Manual
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Connection / System info (static text الآن) -->
+    <div class="panel" style="gap: 10px;">
+      <h2>System Status</h2>
+      <div class="panel-sub" style="gap: 4px;">
+        <div style="font-size: 0.85rem; color:#9ca3af;">ESP32 Link</div>
+        <div id="esp-status" style="font-size: 0.9rem;">
+          Make sure ESP32 calls:
+          <br />
+          <code style="font-size: 0.75rem;">GET http://&lt;PC_IP&gt;:5001/api/esp32/register?ip=&lt;ESP32_IP&gt;</code>
+        </div>
+      </div>
+      <div class="panel-sub" style="gap: 4px;">
+        <div style="font-size: 0.85rem; color:#9ca3af;">Database</div>
+        <div style="font-size: 0.9rem;">
+          Using <strong>MySQL · smart_warehouse</strong><br />
+          Tables: <code>cells</code>, <code>products</code>, <code>cell_products</code>,
+          <code>loading_slots</code>, <code>operations</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Two Columns -->
+  <main class="layout">
+    <!-- LEFT: Storage Cells Panel -->
+    <section class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Storage Cells Rack</h2>
+        <span style="font-size:0.8rem; color:#9ca3af;">Tap a cell to select it</span>
+      </div>
+
+      <!-- Cells grid -->
+      <div id="cells-grid" class="cells-grid"></div>
+
+      <!-- Manual assign to cell -->
+      <div class="panel-sub">
+        <h3>Assign Product to Cell (Manual)</h3>
+
+        <div class="form-row">
+          <label>Cell:</label>
+          <select id="cell-select"></select>
+        </div>
+
+        <div class="form-row">
+          <label>Product:</label>
+          <select id="product-select"></select>
+        </div>
+
+        <div class="form-row">
+          <label>Quantity:</label>
+          <input type="number" id="cell-qty" value="1" min="1" />
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <button id="btn-assign-cell" class="btn btn-primary">Assign to Cell</button>
+          <button id="btn-clear-cell" class="btn btn-danger">Clear Cell</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Loading Zone + Operations -->
+    <section class="panel">
+      <h2>Loading Zone · Outbound Area</h2>
+
+      <!-- Loading slots table -->
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Slot</th>
+            <th>Status</th>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="loading-slots-body"></tbody>
+      </table>
+
+      <!-- Move from cell to loading slot (manual) -->
+      <div class="panel-sub">
+        <h3>Move from Cell → Loading Slot (Manual)</h3>
+        <p style="font-size:0.8rem; color:#9ca3af;">
+          Use this when you want the robot to fetch items from a cell and place them into a loading slot.
+        </p>
+
+        <div class="form-row">
+          <label>From Cell:</label>
+          <select id="from-cell-select"></select>
+        </div>
+
+        <div class="form-row">
+          <label>To Slot:</label>
+          <select id="slot-select"></select>
+        </div>
+
+        <div class="form-row">
+          <label>Quantity:</label>
+          <input type="number" id="slot-qty" value="1" min="1" />
+        </div>
+
+        <button id="btn-move-to-slot" class="btn btn-primary">
+          Move to Loading Slot
+        </button>
+      </div>
+
+      <!-- Auto mode -->
+      <div class="panel-sub auto-only">
+        <h3>Automatic Loading Mode</h3>
+        <p style="font-size:0.8rem; color:#9ca3af;">
+          In <strong>Automatic</strong> mode, the ESP32 + Arduino run the full loading flow
+          (conveyor + arm) and update the loading zone.
+        </p>
+        <button id="btn-start-auto" class="btn btn-accent">
+          ▶ Start Auto Loading
+        </button>
+      </div>
+
+      <!-- Operations log -->
+      <div class="panel-sub">
+        <h3>Operations Log</h3>
+        <p style="font-size:0.8rem; color:#9ca3af; margin-bottom:4px;">
+          Recent commands sent to the robot and their status.
+        </p>
+        <table class="table table-compact">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>CMD</th>
+              <th>Status</th>
+              <th>Cell</th>
+              <th>Slot</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="operations-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span>
+      Smart Warehouse Graduation Project · ESP32 · Arduino Mega · Node.js · MySQL
+    </span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
